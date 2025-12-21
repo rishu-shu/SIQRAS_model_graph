@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SIQRAS Malware Spread Model</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <h2>SIQRAS Malware Spread Model</h2>
+
+  <div id="plot" style="width:90%;height:600px;"></div>
+
+  <div>
+    <label>β Infection: <input type="range" id="beta" min="0" max="0.03" step="0.001" value="0.01"></label>
+    <span id="beta_val">0.01</span><br>
+    <label>γ Quarantine: <input type="range" id="gamma" min="0" max="0.6" step="0.01" value="0.05"></label>
+    <span id="gamma_val">0.05</span><br>
+    <label>αSA (S→A): <input type="range" id="alphaSA" min="0" max="0.05" step="0.001" value="0.01"></label>
+    <span id="alphaSA_val">0.01</span><br>
+    <label>αIA (I→A): <input type="range" id="alphaIA" min="0" max="0.05" step="0.001" value="0.02"></label>
+    <span id="alphaIA_val">0.02</span><br>
+    <button id="wannacry">WannaCry Preset</button>
+  </div>
+
+  <script>
+    // =========================
+    // Time settings
+    // =========================
+    const dt = 0.1;
+    const T = 50;
+    const time = [];
+    for(let t=0; t<=T; t+=dt){ time.push(t); }
+
+    // =========================
+    // Initial conditions
+    // =========================
+    const S0=90, I0=5, Q0=0, R0=0, A0=5;
+    const delta=0.1, epsilon=0.03, sigma=0.01, phi=0.02;
+
+    // =========================
+    // SIQRAS simulation
+    // =========================
+    function simulate(beta, gamma, alphaSA, alphaIA){
+      let S=[], I=[], Q=[], R=[], A=[];
+      S[0]=S0; I[0]=I0; Q[0]=Q0; R[0]=R0; A[0]=A0;
+      for(let t=1; t<time.length; t++){
+        let dS = -beta*S[t-1]*I[t-1] - alphaSA*S[t-1]*A[t-1] + sigma*R[t-1];
+        let dI = beta*S[t-1]*I[t-1] - alphaIA*I[t-1]*A[t-1] - (epsilon+gamma)*I[t-1];
+        let dQ = gamma*I[t-1] - (phi+delta)*Q[t-1];
+        let dR = delta*Q[t-1] - sigma*R[t-1] + epsilon*I[t-1];
+        let dA = alphaIA*I[t-1]*A[t-1] + alphaSA*S[t-1]*A[t-1];
+
+        S.push(S[t-1] + dS*dt);
+        I.push(I[t-1] + dI*dt);
+        Q.push(Q[t-1] + dQ*dt);
+        R.push(R[t-1] + dR*dt);
+        A.push(A[t-1] + dA*dt);
+      }
+      return {S,I,Q,R,A};
+    }
+
+    // =========================
+    // Plot
+    // =========================
+    function plotGraph(beta, gamma, alphaSA, alphaIA){
+      const data = simulate(beta, gamma, alphaSA, alphaIA);
+      const traces = [
+        {x: time, y: data.S, mode:'lines', name:'S'},
+        {x: time, y: data.I, mode:'lines', name:'I'},
+        {x: time, y: data.Q, mode:'lines', name:'Q'},
+        {x: time, y: data.R, mode:'lines', name:'R'},
+        {x: time, y: data.A, mode:'lines', name:'A'}
+      ];
+      Plotly.newPlot('plot', traces, {title:'SIQRAS Malware Spread Model',
+                                      xaxis:{title:'Time'}, yaxis:{title:'Number of Systems'}});
+    }
+
+    // Initial plot
+    plotGraph(0.01, 0.05, 0.01, 0.02);
+
+    // =========================
+    // Slider events
+    // =========================
+    const sliders = ['beta','gamma','alphaSA','alphaIA'];
+    sliders.forEach(id=>{
+      document.getElementById(id).addEventListener('input', ()=>{
+        const beta = parseFloat(document.getElementById('beta').value);
+        const gamma = parseFloat(document.getElementById('gamma').value);
+        const alphaSA = parseFloat(document.getElementById('alphaSA').value);
+        const alphaIA = parseFloat(document.getElementById('alphaIA').value);
+
+        document.getElementById(id+'_val').innerText = document.getElementById(id).value;
+        plotGraph(beta,gamma,alphaSA,alphaIA);
+      });
+    });
+
+    // =========================
+    // WannaCry preset
+    // =========================
+    document.getElementById('wannacry').addEventListener('click', ()=>{
+      document.getElementById('beta').value = 0.025;
+      document.getElementById('gamma').value = 0.04;
+      document.getElementById('alphaSA').value = 0.005;
+      document.getElementById('alphaIA').value = 0.01;
+
+      document.getElementById('beta_val').innerText = 0.025;
+      document.getElementById('gamma_val').innerText = 0.04;
+      document.getElementById('alphaSA_val').innerText = 0.005;
+      document.getElementById('alphaIA_val').innerText = 0.01;
+
+      plotGraph(0.025,0.04,0.005,0.01);
+    });
+  </script>
+</body>
+</html>
